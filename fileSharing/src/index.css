@@ -129,7 +129,7 @@ a {
 }
 
 .modal-content button {
-  width: 100%;
+  /* width: 100%; */
   padding: 10px;
   background-color: #4a90e2;
   color: white;
@@ -576,6 +576,8 @@ a {
 .contact-form textarea {
   padding: 10px 15px;
   border: 1px solid #ccc;
+  resize: vertical;
+  min-height: 40px;
   border-radius: 8px;
   font-size: 1rem;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
