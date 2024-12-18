@@ -1,17 +1,18 @@
 import React, { useContext } from "react";
-import { Navigate, Outlet } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 
-// A wrapper to protect private routes
-const PrivateRoute = ({ component: Component, ...rest }) => {
-  const { user } = useContext(AuthContext); // Access user state from AuthContext
+// PrivateRoute: Protects routes from unauthenticated users
+const PrivateRoute = () => {
+  const { user } = useContext(AuthContext); // Access user authentication status
+  const location = useLocation(); // Get the current route location
 
-  // If the user is authenticated, render the specified component
-  // Otherwise, redirect to login
   return user ? (
+    // If the user is authenticated, render the children components or nested routes
     <Outlet />
   ) : (
-    <Navigate to="/login" replace />
+    // Redirect to login and preserve the current route
+    <Navigate to="/login" state={{ from: location }} replace />
   );
 };
 

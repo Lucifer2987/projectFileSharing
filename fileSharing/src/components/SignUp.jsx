@@ -1,35 +1,44 @@
 import React, { useState } from "react";
 import axios from "axios";
 
-function SignUp({ onClose }) {
+function SignUp({ onClose, apiVersion = "v1" }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false); // Add loading state
+  const [loading, setLoading] = useState(false);
 
+  // Email Validation Function
   const validateEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // Basic email format validation
     return emailRegex.test(email);
   };
 
+  // Password Validation Function
   const validatePassword = (password) => {
-    // Ensure password is at least 8 characters long and includes a mix of letters and numbers
-    return password.length >= 8 && /\d/.test(password) && /[A-Za-z]/.test(password);
+    return (
+      password.length >= 8 &&
+      /\d/.test(password) && // At least one number
+      /[A-Z]/.test(password) && // At least one uppercase letter
+      /[a-z]/.test(password) && // At least one lowercase letter
+      /[@$!%*?&]/.test(password) // At least one special character
+    );
   };
 
   const handleSignUp = async (e) => {
     e.preventDefault();
     setMessage(""); // Clear any previous messages
 
-    // Client-side validation
+    // Client-side validations
     if (!validateEmail(email)) {
       setMessage("Please enter a valid email address.");
       return;
     }
 
     if (!validatePassword(password)) {
-      setMessage("Password must be at least 8 characters long and include letters and numbers.");
+      setMessage(
+        "Password must be at least 8 characters long, include uppercase, lowercase, a number, and a special character."
+      );
       return;
     }
 
@@ -38,20 +47,28 @@ function SignUp({ onClose }) {
       return;
     }
 
-    setLoading(true); // Show loading indicator
+    setLoading(true); // Set loading state
     try {
-      // API call to backend for signing up
-      const response = await axios.post("http://localhost:5000/api/auth/signup", { email, password });
-      setMessage("Sign up successful! You can now log in.");
-      
-      // Close the modal after success
+      // Use dynamic versioning for the endpoint
+      const endpoint = `http://localhost:5000/auth/register`;
+
+
+      const response = await axios.post(endpoint, { email, password });
+
+      setMessage("🎉 Sign up successful! You can now log in.");
       setTimeout(() => {
         setLoading(false);
-        onClose();
+        onClose(); // Close the modal
       }, 1500);
+
+      // Reset form fields
+      setEmail("");
+      setPassword("");
+      setConfirmPassword("");
     } catch (error) {
-      // Handle API errors
-      setMessage(error.response?.data?.message || "Error signing up. Please try again.");
+      const errorMessage =
+        error.response?.data?.message || "Error signing up. Please try again.";
+      setMessage(errorMessage);
       setLoading(false);
     }
   };
@@ -60,39 +77,62 @@ function SignUp({ onClose }) {
     <div className="signup-container">
       <h2>Sign Up</h2>
       <form onSubmit={handleSignUp}>
+        {/* Email Field */}
         <div className="input-group">
+          <label htmlFor="email">Email</label>
           <input
+            id="email"
             type="email"
-            placeholder="Email"
+            placeholder="Enter your email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
           />
         </div>
+
+        {/* Password Field */}
         <div className="input-group">
+          <label htmlFor="password">Password</label>
           <input
+            id="password"
             type="password"
-            placeholder="Password"
+            placeholder="Enter your password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
           />
         </div>
+
+        {/* Confirm Password Field */}
         <div className="input-group">
+          <label htmlFor="confirmPassword">Confirm Password</label>
           <input
+            id="confirmPassword"
             type="password"
-            placeholder="Confirm Password"
+            placeholder="Confirm your password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             required
           />
         </div>
+
+        {/* Submit Button */}
         <div className="button-group">
           <button type="submit" disabled={loading}>
             {loading ? "Signing up..." : "Sign Up"}
           </button>
         </div>
-        {message && <p className={`message ${loading ? "info" : "error"}`}>{message}</p>}
+
+        {/* Feedback Message */}
+        {message && (
+          <p
+            className={`message ${
+              message.includes("successful") ? "success" : "error"
+            }`}
+          >
+            {message}
+          </p>
+        )}
       </form>
     </div>
   );

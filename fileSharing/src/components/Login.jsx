@@ -5,8 +5,7 @@ function Login({ onClose }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false); // Add loading state
-  const { login } = useContext(AuthContext);
+  const { login, loading } = useContext(AuthContext); // Use the login function from AuthContext
 
   const validateEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // Basic email format validation
@@ -28,21 +27,18 @@ function Login({ onClose }) {
       return;
     }
 
-    setLoading(true); // Show loading indicator
     try {
       const credentials = { email, password };
-      await login(credentials); // Attempt login via AuthContext
-      setMessage("Login successful! Welcome back.");
+      await login(credentials); // Call login from AuthContext
 
-      // Close the modal after a delay
+      setMessage("Login successful! Welcome back.");
       setTimeout(() => {
         setMessage("");
-        setLoading(false); // Reset loading state
-        onClose();
+        onClose(); // Close the modal
       }, 1500);
     } catch (error) {
-      setLoading(false); // Reset loading state
-      setMessage("Invalid email or password. Please try again.");
+      const errorMessage = error.response?.data?.message || "Invalid email or password.";
+      setMessage(errorMessage);
     }
   };
 
@@ -51,7 +47,9 @@ function Login({ onClose }) {
       <h2>Login</h2>
       <form onSubmit={handleLogin}>
         <div className="input-group">
+          <label htmlFor="email">Email</label>
           <input
+            id="email"
             type="email"
             placeholder="Your Email"
             value={email}
@@ -60,7 +58,9 @@ function Login({ onClose }) {
           />
         </div>
         <div className="input-group">
+          <label htmlFor="password">Password</label>
           <input
+            id="password"
             type="password"
             placeholder="Your Password"
             value={password}
