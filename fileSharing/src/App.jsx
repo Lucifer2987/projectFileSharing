@@ -64,8 +64,8 @@ function App() {
           <header className="navbar">
             <h1>SecureShare</h1>
             <div>
-              <button onClick={() => openAuthModal("login")}>Login</button>
-              <button onClick={() => openAuthModal("signup")}>Sign Up</button>
+              <button className="login-btn" onClick={() => openAuthModal("login")}>Login</button>
+              <button className="signup-btn" onClick={() => openAuthModal("signup")}>Sign Up</button>
             </div>
           </header>
 

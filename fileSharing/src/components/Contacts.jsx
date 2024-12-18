@@ -97,17 +97,17 @@ function Contacts() {
           <div className="social-links">
             <SocialLink
               href="https://facebook.com"
-              src="facebook-icon.png"
+              src="../src/assets/facebook-icon.png"
               alt="Facebook"
             />
             <SocialLink
               href="https://twitter.com"
-              src="twitter-icon.png"
+              src="../src/assets/twitter-icon.png"
               alt="Twitter"
             />
             <SocialLink
               href="https://linkedin.com"
-              src="linkedin-icon.png"
+              src="../src/assets/linkedin-icon.png"
               alt="LinkedIn"
             />
           </div>

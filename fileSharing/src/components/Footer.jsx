@@ -4,9 +4,9 @@ function Footer() {
   const currentYear = new Date().getFullYear(); // Get the current year dynamically
 
   const socialMediaLinks = [
-    { href: "https://facebook.com", icon: "facebook-icon.png", alt: "Facebook" },
-    { href: "https://twitter.com", icon: "twitter-icon.png", alt: "Twitter" },
-    { href: "https://linkedin.com", icon: "linkedin-icon.png", alt: "LinkedIn" },
+    { href: "https://facebook.com", icon: "../src/assets/facebook-icon.png", alt: "Facebook" },
+    { href: "https://twitter.com", icon: "../src/assets/twitter-icon.png", alt: "Twitter" },
+    { href: "https://linkedin.com", icon: "../src/assets/linkedin-icon.png", alt: "LinkedIn" },
   ];
 
   return (
@@ -15,6 +15,7 @@ function Footer() {
         <p>&copy; {currentYear} SecureShare. All rights reserved.</p>
         <nav className="footer-links">
           <a href="/privacy-policy" aria-label="Privacy Policy">Privacy Policy</a>
+          |
           <a href="/terms-of-service" aria-label="Terms of Service">Terms of Service</a>
         </nav>
         <div className="social-media">

@@ -9,7 +9,7 @@ function Hero({ scrollToUpload }) {
         <button onClick={scrollToUpload}>Get Started</button>
       </div>
       <div className="hero-image">
-        <img src="secure-file-sharing.png" alt="Secure File Sharing" />
+        <img src="../src/assets/secure-file-sharing.png" alt="Secure File Sharing" />
       </div>
     </section>
   );
