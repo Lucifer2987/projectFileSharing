@@ -5,18 +5,17 @@ function Login({ onClose }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
-  const { login, loading } = useContext(AuthContext); // Use the login function from AuthContext
+  const { login, loading } = useContext(AuthContext);
 
   const validateEmail = (email) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // Basic email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   };
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setMessage(""); // Clear previous messages
+    setMessage("");
 
-    // Client-side validation
     if (!email || !password) {
       setMessage("Please fill in all fields.");
       return;
@@ -28,17 +27,31 @@ function Login({ onClose }) {
     }
 
     try {
-      const credentials = { email, password };
-      await login(credentials); // Call login from AuthContext
-
-      setMessage("Login successful! Welcome back.");
-      setTimeout(() => {
-        setMessage("");
-        onClose(); // Close the modal
-      }, 1500);
+      console.log('Attempting login with:', email);
+      const result = await login({ email, password });
+      console.log('Login result:', result);
+      
+      if (result.success) {
+        setMessage("Login successful!");
+        // Clear form
+        setEmail("");
+        setPassword("");
+        setTimeout(() => {
+          onClose();
+        }, 1500);
+      } else {
+        // Show specific error message from the backend
+        setMessage(result.error || "Login failed. Please check your credentials.");
+      }
     } catch (error) {
-      const errorMessage = error.response?.data?.message || "Invalid email or password.";
-      setMessage(errorMessage);
+      console.error("Login error:", error);
+      if (error.response?.status === 0) {
+        setMessage("Network error. Please check if the backend server is running.");
+      } else if (error.response?.status === 401) {
+        setMessage("Invalid email or password. Please try again.");
+      } else {
+        setMessage(error.response?.data?.error || "An unexpected error occurred. Please try again.");
+      }
     }
   };
 
@@ -68,14 +81,16 @@ function Login({ onClose }) {
             required
           />
         </div>
+        {message && (
+          <div className={`message ${message.includes('successful') ? 'success' : 'error'}`}>
+            {message}
+          </div>
+        )}
         <div className="button-group">
           <button type="submit" disabled={loading}>
-            {loading ? "Logging in..." : "Login"}
+            Login
           </button>
         </div>
-        {message && (
-          <p className={`message ${loading ? "info" : "error"}`}>{message}</p>
-        )}
       </form>
     </div>
   );

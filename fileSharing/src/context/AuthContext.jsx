@@ -1,117 +1,144 @@
-import { createContext, useState, useEffect, useMemo } from "react";
-import axios from "axios";
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import axios from 'axios';
 
-export const AuthContext = createContext();
+export const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [authError, setAuthError] = useState(""); // To store error messages
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [user, setUser] = useState(null);
+    const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    // On component mount, check if there's a token and fetch user data
-    fetchUser();
-  }, []);
+    const checkAuthStatus = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                setIsLoggedIn(false);
+                setUser(null);
+                setLoading(false);
+                return;
+            }
 
-  const login = async (credentials) => {
-    try {
-      // Basic validation to ensure credentials are complete
-      if (!credentials.email || !credentials.password) {
-        throw new Error("Email and password are required.");
-      }
+            const response = await axios.get('http://127.0.0.1:5000/check_auth', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
 
-      const response = await axios.post("http://localhost:5000/login", credentials);
-      const { token, userData } = response.data;
+            if (response.data.isAuthenticated) {
+                setIsLoggedIn(true);
+                setUser(response.data.user);
+            } else {
+                setIsLoggedIn(false);
+                setUser(null);
+                localStorage.removeItem('token');
+            }
+        } catch (error) {
+            console.error('Auth check error:', error);
+            setIsLoggedIn(false);
+            setUser(null);
+            localStorage.removeItem('token');
+        } finally {
+            setLoading(false);
+        }
+    };
 
-      localStorage.setItem("token", token); // Store the token securely
-      setUser(userData); // Update the user state
-      setAuthError(""); // Clear previous errors
-    } catch (error) {
-      console.error("Login failed:", error);
-      setAuthError(error.response?.data?.message || "Login failed. Please try again.");
-      throw error; // Re-throw for UI-level handling if needed
-    }
-  };
+    useEffect(() => {
+        checkAuthStatus();
+    }, []);
 
-  const logout = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      if (token) {
-        await axios.post(
-          "http://localhost:5000/logout",
-          {},
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-      }
-    } catch (error) {
-      console.error("Logout failed:", error);
-      setAuthError("Logout failed. Please try again.");
-    } finally {
-      localStorage.removeItem("token");
-      setUser(null); // Clear user data
-    }
-  };
+    const login = async (credentials) => {
+        try {
+            console.log('Attempting login with:', credentials.email);
+            const response = await axios.post(
+                'http://127.0.0.1:5000/auth/login',
+                credentials,
+                {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    withCredentials: true
+                }
+            );
 
-  const fetchUser = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setLoading(false);
-        return; // No token means no user data to fetch
-      }
+            console.log('Login response:', response.data);
 
-      // Check if the token is expired (you can modify this depending on your token structure)
-      const decodedToken = decodeToken(token);
-      if (decodedToken.exp < Date.now() / 1000) {
-        logout();
-        return;
-      }
+            if (response.data && response.data.token) {
+                localStorage.setItem('token', response.data.token);
+                setIsLoggedIn(true);
+                setUser({ email: credentials.email });
+                return { success: true };
+            } else {
+                console.error('No token in response:', response.data);
+                return { 
+                    success: false, 
+                    error: response.data?.error || 'Authentication failed. Please try again.' 
+                };
+            }
+        } catch (error) {
+            console.error('Login error:', error.response?.data || error.message);
+            if (error.response?.status === 401) {
+                return {
+                    success: false,
+                    error: error.response.data?.error || 'Invalid email or password'
+                };
+            }
+            if (error.response?.status === 0) {
+                return {
+                    success: false,
+                    error: 'Network error. Please check if the backend server is running.'
+                };
+            }
+            return {
+                success: false,
+                error: error.response?.data?.error || 'Login failed. Please try again.'
+            };
+        }
+    };
 
-      const response = await axios.get("http://localhost:5000/me", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+    const logout = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            if (token) {
+                await axios.post('http://127.0.0.1:5000/auth/logout', {}, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+            }
+            localStorage.removeItem('token');
+            setIsLoggedIn(false);
+            setUser(null);
+            return { success: true, message: 'Logged out successfully' };
+        } catch (error) {
+            console.error('Logout error:', error);
+            localStorage.removeItem('token');
+            setIsLoggedIn(false);
+            setUser(null);
+            return { success: false, error: 'Failed to log out' };
+        }
+    };
 
-      setUser(response.data); // Set user state
-      setAuthError(""); // Clear any previous errors
-    } catch (error) {
-      console.error("Fetching user failed:", error);
-      logout(); // Logout if the token is invalid or expired
-      setAuthError("Session expired. Please log in again.");
-    } finally {
-      setLoading(false); // Stop loading once the user data is fetched
-    }
-  };
-
-  const isAuthenticated = useMemo(() => {
-    return !!localStorage.getItem("token");
-  }, []); // Memoize this value for optimization
-
-  // Helper function to decode JWT token (this is optional)
-  const decodeToken = (token) => {
-    try {
-      const payload = token.split(".")[1];
-      return JSON.parse(atob(payload));
-    } catch (error) {
-      console.error("Token decoding failed:", error);
-      return {};
-    }
-  };
-
-  return (
-    <AuthContext.Provider
-      value={{
+    const value = {
+        isLoggedIn,
         user,
         login,
         logout,
-        fetchUser,
-        isAuthenticated,
         loading,
-        authError, // Provide error messages to UI
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
+        checkAuthStatus
+    };
+
+    return (
+        <AuthContext.Provider value={value}>
+            {!loading && children}
+        </AuthContext.Provider>
+    );
+};
+
+export const useAuth = () => {
+    const context = useContext(AuthContext);
+    if (!context) {
+        throw new Error('useAuth must be used within an AuthProvider');
+    }
+    return context;
 };

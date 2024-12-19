@@ -1,102 +1,191 @@
-import React, { useState, useContext } from "react";
-import { AuthContext } from "../context/AuthContext";
+import React, { useState, useEffect } from 'react';
+import { loginUser, registerUser, checkAuthStatus as checkAuth } from '../api';
+import './Authentication.css';
 
-function Authentication({ type, closeModal, toggleAuth }) {
-  const { login } = useContext(AuthContext); // Use login from AuthContext
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState(""); // For registration
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
+const Authentication = () => {
+    const [showLogin, setShowLogin] = useState(true);
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [userEmail, setUserEmail] = useState('');
+    const [formData, setFormData] = useState({
+        username: '',
+        password: '',
+        email: ''
+    });
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setMessage(""); // Clear previous messages
-
-    if (type === "register" && password !== confirmPassword) {
-      setMessage("Passwords do not match.");
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      if (type === "login") {
-        // Login API call
-        await login({ email, password });
-        setMessage("Login successful!");
-        setTimeout(closeModal, 1500); // Close modal after successful login
-      } else {
-        // Registration API call
-        const response = await fetch("http://localhost:5000/api/auth/signup", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || "Registration failed.");
+    const checkAuthStatus = async () => {
+        try {
+            const response = await checkAuth();
+            console.log('Auth status response:', response);
+            if (response.logged_in) {
+                setIsLoggedIn(true);
+                setUserEmail(response.email);
+            } else {
+                setIsLoggedIn(false);
+                setUserEmail('');
+                localStorage.removeItem('token');
+            }
+        } catch (error) {
+            console.error('Error checking auth status:', error);
+            setIsLoggedIn(false);
+            setUserEmail('');
+            localStorage.removeItem('token');
         }
+    };
 
-        setMessage("Registration successful! You can now log in.");
-        setTimeout(() => {
-          setMessage("");
-          toggleAuth(); // Switch to login view
-        }, 1500);
-      }
-    } catch (error) {
-      setMessage(error.message || "An error occurred. Please try again.");
-    } finally {
-      setLoading(false);
+    useEffect(() => {
+        checkAuthStatus();
+    }, []);
+
+    const handleInputChange = (e) => {
+        setFormData({
+            ...formData,
+            [e.target.name]: e.target.value
+        });
+    };
+
+    const handleLogin = async (e) => {
+        e.preventDefault();
+        try {
+            console.log('Attempting login with:', formData.email);
+            const response = await loginUser(formData.email, formData.password);
+            console.log('Login response:', response);
+            
+            if (response.token) {
+                localStorage.setItem('token', response.token);
+                setIsLoggedIn(true);
+                setUserEmail(formData.email);
+                setFormData({ username: '', password: '', email: '' });
+                await checkAuthStatus();
+            }
+        } catch (error) {
+            console.error('Login error:', error);
+            alert('Login failed: ' + (error.response?.data?.message || 'Unknown error'));
+        }
+    };
+
+    const handleSignup = async (e) => {
+        e.preventDefault();
+        try {
+            const response = await registerUser(formData);
+            console.log('Signup response:', response);
+            if (response.message.includes('success')) {
+                alert('Signup successful! Please login.');
+                setShowLogin(true);
+                setFormData({ username: '', password: '', email: '' });
+            }
+        } catch (error) {
+            console.error('Signup error:', error);
+            alert(error.response?.data?.message || 'Signup failed');
+        }
+    };
+
+    const handleLogout = async () => {
+        try {
+            localStorage.removeItem('token');
+            setIsLoggedIn(false);
+            setUserEmail('');
+            setFormData({ username: '', password: '', email: '' });
+            await checkAuthStatus();
+        } catch (error) {
+            console.error('Logout error:', error);
+        }
+    };
+
+    // Render logout button if logged in
+    if (isLoggedIn) {
+        console.log('User is logged in, showing logout button');
+        return (
+            <div className="auth-container">
+                <h3>Welcome, {userEmail}!</h3>
+                <button onClick={handleLogout} className="auth-button">Logout</button>
+            </div>
+        );
     }
-  };
 
-  return (
-    <div className="modal">
-      <div className="modal-content">
-        <span className="close" onClick={closeModal}>
-          &times;
-        </span>
-        <h2>{type === "login" ? "Login" : "Register"}</h2>
-        <form onSubmit={handleSubmit}>
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          {type === "register" && (
-            <input
-              type="password"
-              placeholder="Confirm Password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-            />
-          )}
-          <button type="submit" disabled={loading}>
-            {loading ? (type === "login" ? "Logging in..." : "Registering...") : type === "login" ? "Login" : "Register"}
-          </button>
-          {message && <p className="message">{message}</p>}
-        </form>
-        <p>
-          {type === "login" ? "Don't have an account?" : "Already have an account?"}{" "}
-          <span onClick={toggleAuth} className="toggle-auth-link">
-            {type === "login" ? "Register here" : "Login here"}
-          </span>
-        </p>
-      </div>
-    </div>
-  );
-}
+    // Render login/signup forms if not logged in
+    console.log('User is not logged in, showing login/signup forms');
+    return (
+        <div className="auth-container">
+            {showLogin ? (
+                <>
+                    <h3>Login</h3>
+                    <form onSubmit={handleLogin} className="auth-form">
+                        <input
+                            type="email"
+                            name="email"
+                            placeholder="Email"
+                            value={formData.email}
+                            onChange={handleInputChange}
+                            className="auth-input"
+                            required
+                        />
+                        <input
+                            type="password"
+                            name="password"
+                            placeholder="Password"
+                            value={formData.password}
+                            onChange={handleInputChange}
+                            className="auth-input"
+                            required
+                        />
+                        <button type="submit" className="auth-button">Login</button>
+                    </form>
+                    <p>
+                        Don't have an account?{' '}
+                        <button 
+                            onClick={() => setShowLogin(false)}
+                            className="auth-switch-button"
+                        >
+                            Sign Up
+                        </button>
+                    </p>
+                </>
+            ) : (
+                <>
+                    <h3>Sign Up</h3>
+                    <form onSubmit={handleSignup} className="auth-form">
+                        <input
+                            type="text"
+                            name="username"
+                            placeholder="Username"
+                            value={formData.username}
+                            onChange={handleInputChange}
+                            className="auth-input"
+                            required
+                        />
+                        <input
+                            type="email"
+                            name="email"
+                            placeholder="Email"
+                            value={formData.email}
+                            onChange={handleInputChange}
+                            className="auth-input"
+                            required
+                        />
+                        <input
+                            type="password"
+                            name="password"
+                            placeholder="Password"
+                            value={formData.password}
+                            onChange={handleInputChange}
+                            className="auth-input"
+                            required
+                        />
+                        <button type="submit" className="auth-button">Sign Up</button>
+                    </form>
+                    <p>
+                        Already have an account?{' '}
+                        <button 
+                            onClick={() => setShowLogin(true)}
+                            className="auth-switch-button"
+                        >
+                            Login
+                        </button>
+                    </p>
+                </>
+            )}
+        </div>
+    );
+};
 
 export default Authentication;

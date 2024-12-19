@@ -1,22 +1,51 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import axios from "axios";
+import { AuthContext } from "../context/AuthContext";
+import "./UploadSection.css";
 
 function FileUploadPrediction() {
     const [file, setFile] = useState(null);
     const [mode, setMode] = useState("malware"); // Either 'malware' or 'anomaly'
-    const [version, setVersion] = useState("1.0"); // Default model version
     const [result, setResult] = useState("");
+    const [error, setError] = useState("");
+    const [progress, setProgress] = useState(0);
+    const { isLoggedIn } = useContext(AuthContext);
+    const [uploadedFiles, setUploadedFiles] = useState([]);
 
     // Handle file selection
     const handleFileChange = (e) => {
-        setFile(e.target.files[0]);
+        const selectedFile = e.target.files[0];
+        const allowedTypes = ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
+        const maxFileSize = 5 * 1024 * 1024; // 5MB
+
+        if (!selectedFile) return;
+
+        if (!allowedTypes.includes(selectedFile.type)) {
+            setError("Unsupported file type. Please upload a PDF or DOCX file.");
+            setFile(null);
+            return;
+        }
+
+        if (selectedFile.size > maxFileSize) {
+            setError("File size exceeds the limit of 5MB.");
+            setFile(null);
+            return;
+        }
+
+        setFile(selectedFile);
+        setError("");
+        setResult("");
     };
 
-    // Handle prediction submission
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    // Handle file upload
+    const handleUpload = async () => {
+        if (!isLoggedIn) {
+            setError("Please log in to upload files.");
+            return;
+        }
+
         if (!file) {
-            alert("Please upload a file first.");
+            setError("Please upload a file first.");
             return;
         }
 
@@ -24,57 +53,130 @@ function FileUploadPrediction() {
         formData.append("file", file);
 
         try {
-            const response = await axios.post(
-                `http://localhost:5000/predict-file/${mode}/${version}`,
+            setProgress(25);
+            const token = localStorage.getItem('token');
+            
+            // First, upload the file
+            const uploadResponse = await axios.post(
+                'http://localhost:5000/api/files/upload',
                 formData,
                 {
                     headers: {
-                        "Authorization": `Bearer YOUR_ACCESS_TOKEN`, // Replace with actual token
+                        "Authorization": `Bearer ${token}`,
                         "Content-Type": "multipart/form-data",
                     },
+                    withCredentials: true
                 }
             );
 
-            setResult(JSON.stringify(response.data, null, 2));
+            setProgress(50);
+
+            // Then, analyze the file
+            const analysisResponse = await axios.post(
+                `http://localhost:5000/predict-${mode}`,
+                formData,
+                {
+                    headers: {
+                        "Authorization": `Bearer ${token}`,
+                        "Content-Type": "multipart/form-data",
+                    },
+                    withCredentials: true
+                }
+            );
+
+            setProgress(75);
+            
+            if (analysisResponse.data.status === 'success') {
+                setResult(analysisResponse.data.prediction ? "File is safe!" : "Warning: Potential threat detected!");
+                setError("");
+                
+                // Update uploaded files list
+                setUploadedFiles(prev => [...prev, {
+                    id: uploadResponse.data.file_id,
+                    name: uploadResponse.data.file_name,
+                    uploadedAt: new Date().toLocaleString(),
+                    status: analysisResponse.data.prediction ? "Safe" : "Potential Threat"
+                }]);
+            } else {
+                setError(analysisResponse.data.message || "Analysis failed. Please try again.");
+                setResult("");
+            }
+            
+            setProgress(100);
         } catch (error) {
-            console.error("Error during prediction:", error);
-            alert("Prediction failed. Please check the console for details.");
+            console.error("Error during upload/analysis:", error);
+            setError(error.response?.data?.message || "An unexpected error occurred. Please try again.");
+            setResult("");
+            setProgress(0);
         }
     };
 
     return (
-        <div>
-            <h2>File Upload for Prediction</h2>
-            <form onSubmit={handleSubmit}>
+        <div className="upload-container">
+            <h2>File Upload & Analysis</h2>
+            <div className="mode-selection">
                 <label>
-                    Select Prediction Mode:
-                    <select value={mode} onChange={(e) => setMode(e.target.value)}>
-                        <option value="malware">Malware Detection</option>
-                        <option value="anomaly">Anomaly Detection</option>
-                    </select>
-                </label>
-                <br />
-                <label>
-                    Model Version:
                     <input
-                        type="text"
-                        value={version}
-                        onChange={(e) => setVersion(e.target.value)}
-                        placeholder="e.g., 1.0"
+                        type="radio"
+                        name="mode"
+                        value="malware"
+                        checked={mode === "malware"}
+                        onChange={(e) => setMode(e.target.value)}
                     />
+                    Malware Detection
                 </label>
-                <br />
                 <label>
-                    Upload File:
-                    <input type="file" onChange={handleFileChange} />
+                    <input
+                        type="radio"
+                        name="mode"
+                        value="anomaly"
+                        checked={mode === "anomaly"}
+                        onChange={(e) => setMode(e.target.value)}
+                    />
+                    Anomaly Detection
                 </label>
-                <br />
-                <button type="submit">Submit</button>
-            </form>
-            {result && (
-                <div>
-                    <h3>Prediction Result:</h3>
-                    <pre>{result}</pre>
+            </div>
+
+            <div className="file-upload">
+                <label htmlFor="file">Select File (Max: 5MB, PDF/DOCX only):</label>
+                <input 
+                    type="file" 
+                    id="file" 
+                    onChange={handleFileChange}
+                    accept=".pdf,.docx"
+                />
+                {file && <p>Selected File: <strong>{file.name}</strong></p>}
+            </div>
+
+            {error && <p className="error">{error}</p>}
+
+            <button onClick={handleUpload} disabled={!file || !isLoggedIn}>
+                {!isLoggedIn ? "Please Log In to Upload" : "Upload & Analyze"}
+            </button>
+
+            {progress > 0 && (
+                <progress value={progress} max="100">
+                    {progress}%
+                </progress>
+            )}
+
+            {result && <p className="success">{result}</p>}
+
+            {/* Display uploaded files */}
+            {uploadedFiles.length > 0 && (
+                <div className="uploaded-files">
+                    <h3>Uploaded Files</h3>
+                    <ul>
+                        {uploadedFiles.map(file => (
+                            <li key={file.id}>
+                                <span>{file.name}</span>
+                                <span>{file.uploadedAt}</span>
+                                <span className={file.status === "Safe" ? "safe" : "warning"}>
+                                    {file.status}
+                                </span>
+                            </li>
+                        ))}
+                    </ul>
                 </div>
             )}
         </div>

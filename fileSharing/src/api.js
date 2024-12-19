@@ -4,40 +4,38 @@ import { API_BASE_URL } from "./config";
 // Helper function to handle API calls (GET/POST)
 const handleApiCall = async (method, endpoint, data = null) => {
   try {
+    const token = localStorage.getItem('token');
     const config = {
       method,
       url: `${API_BASE_URL}${endpoint}`,
-      data, // This is sent for POST/PUT requests
-      timeout: 10000, // 10-second timeout
+      data,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` })
+      },
+      withCredentials: true,
+      timeout: 10000
     };
 
     const response = await axios(config);
     return response.data;
   } catch (error) {
     console.error(`Error calling ${endpoint}:`, error);
-
-    const errorMessage =
-      error.code === "ECONNABORTED"
-        ? "The request took too long. Please try again later."
-        : error.response?.data?.message || "An unexpected error occurred. Please try again.";
-
-    throw new Error(errorMessage);
+    throw error;
   }
 };
 
 // ===================== User Authentication API Calls =====================
-export const registerUser = async (data) => {
-  if (!data || typeof data !== "object") {
-    throw new Error("Invalid data format. Please provide valid user details.");
-  }
-  return await handleApiCall("POST", "/auth/register", data);
+export const loginUser = async (email, password) => {
+  return await handleApiCall("POST", "/auth/login", { email, password });
 };
 
-export const loginUser = async (data) => {
-  if (!data || typeof data !== "object") {
-    throw new Error("Invalid data format. Please provide valid login credentials.");
-  }
-  return await handleApiCall("POST", "/auth/login", data);
+export const registerUser = async (userData) => {
+  return await handleApiCall("POST", "/auth/register", userData);
+};
+
+export const checkAuthStatus = async () => {
+  return await handleApiCall("GET", "/check_auth");
 };
 
 // ===================== Phishing Detection API Calls =====================

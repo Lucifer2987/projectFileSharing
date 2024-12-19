@@ -1,17 +1,25 @@
 import React, { useContext, useState } from "react";
 import { AuthContext } from "../context/AuthContext";
+import { toast } from "react-toastify";
 
 function Navbar({ openAuthModal }) {
-  const { user, logout } = useContext(AuthContext); // Access user and logout function from context
+  const { user, isLoggedIn, logout } = useContext(AuthContext);
   const [error, setError] = useState(null);
 
   const handleLogout = async () => {
     try {
-      await logout(); // Perform logout operation
-      setError(null); // Clear any errors upon successful logout
+      const result = await logout();
+      if (result.success) {
+        toast.success(result.message);
+        setError(null);
+      } else {
+        setError(result.error);
+        toast.error(result.error);
+      }
     } catch (err) {
       console.error("Logout failed:", err);
-      setError("Failed to log out. Please try again."); // Display a friendly error message
+      setError("Failed to log out. Please try again.");
+      toast.error("Failed to log out. Please try again.");
     }
   };
 
@@ -19,10 +27,10 @@ function Navbar({ openAuthModal }) {
     <nav className="navbar">
       <h1 className="navbar-brand">SecureShare</h1>
       <div className="navbar-buttons">
-        {user ? (
-          <>
+        {isLoggedIn && user ? (
+          <div className="user-section">
             <span className="welcome-message">
-              Welcome, {user.name || user.email || "User"}!
+              Logged in as: <strong>{user.email}</strong>
             </span>
             <button
               className="logout-button"
@@ -31,10 +39,10 @@ function Navbar({ openAuthModal }) {
             >
               Logout
             </button>
-            {error && <p className="error-message">{error}</p>} {/* Display error */}
-          </>
+            {error && <p className="error-message">{error}</p>}
+          </div>
         ) : (
-          <>
+          <div className="auth-buttons">
             <button
               className="login-button"
               onClick={() => openAuthModal("login")}
@@ -49,7 +57,7 @@ function Navbar({ openAuthModal }) {
             >
               Sign Up
             </button>
-          </>
+          </div>
         )}
       </div>
     </nav>
